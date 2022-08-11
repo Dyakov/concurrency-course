@@ -25,7 +25,6 @@ import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@Disabled
 public class PriceAggregatorTests {
 
     PriceAggregator priceAggregator;
