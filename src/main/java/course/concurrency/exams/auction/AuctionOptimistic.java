@@ -10,18 +10,16 @@ public class AuctionOptimistic implements Auction {
         this.notifier = notifier;
     }
 
-    private AtomicReference<Bid> latestBid = new AtomicReference<>();
+    private AtomicReference<Bid> latestBid = new AtomicReference<>(new Bid(Long.MIN_VALUE, Long.MIN_VALUE, Long.MIN_VALUE));
 
     public boolean propose(Bid bid) {
         Bid expected;
         Bid newValue;
         do {
             expected = latestBid.get();
-            newValue = (expected == null) ? bid : (bid.price > expected.price ? bid : expected);
+            newValue = bid.price > expected.price ? bid : expected;
         } while (!latestBid.compareAndSet(expected, newValue));
-        if(expected == null) {
-            return true;
-        } else if(newValue != expected) {
+        if(newValue != expected) {
             notifier.sendOutdatedMessage(expected);
             return true;
         }

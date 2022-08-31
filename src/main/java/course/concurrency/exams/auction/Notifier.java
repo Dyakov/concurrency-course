@@ -8,6 +8,9 @@ public class Notifier {
     private final Executor executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public void sendOutdatedMessage(Bid bid) {
+        if(bid.id == Long.MIN_VALUE) {
+            return;
+        }
         executor.execute(() -> imitateSending());
     }
 
