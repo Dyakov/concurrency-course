@@ -18,7 +18,7 @@ public class AuctionOptimistic implements Auction {
         do {
             expected = latestBid.get();
             newValue = (expected == null) ? bid : (bid.price > expected.price ? bid : expected);
-        } while (!latestBid.weakCompareAndSetAcquire(expected, newValue));
+        } while (!latestBid.compareAndSet(expected, newValue));
         if(expected == null) {
             return true;
         } else if(newValue != expected) {
