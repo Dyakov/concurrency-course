@@ -1,7 +1,6 @@
 package course.concurrency.m3_shared.collections;
 
 import course.concurrency.exams.auction.ExecutionStatistics;
-import course.concurrency.exams.auction.Notifier;
 import org.junit.jupiter.api.*;
 
 import java.util.Set;
@@ -9,7 +8,6 @@ import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class RestaurantServiceTests {
 
     private static final int TEST_COUNT = 10;
