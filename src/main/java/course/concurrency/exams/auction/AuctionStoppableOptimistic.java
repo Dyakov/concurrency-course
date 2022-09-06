@@ -10,22 +10,18 @@ public class AuctionStoppableOptimistic implements AuctionStoppable {
         this.notifier = notifier;
     }
 
-    private AtomicMarkableReference<Bid> latestBid = new AtomicMarkableReference<>(new Bid(-2L, -2L, -2L), false);
+    private AtomicMarkableReference<Bid> latestBid = new AtomicMarkableReference<>(new Bid(Long.MIN_VALUE, Long.MIN_VALUE, Long.MIN_VALUE), false);
 
     public boolean propose(Bid bid) {
         Bid expected;
-        Bid newValue;
         do {
             expected = latestBid.getReference();
-            newValue = (expected == null) ? bid : (bid.price > expected.price ? bid : expected);
-        } while (!latestBid.compareAndSet(expected, newValue, false, false));
-        if(expected == null) {
-            return true;
-        } else if(newValue != expected) {
-            notifier.sendOutdatedMessage(expected);
-            return true;
-        }
-        return false;
+            if(bid.price <= expected.price) {
+                return false;
+            }
+        } while (!latestBid.compareAndSet(expected, bid, false, false));
+        notifier.sendOutdatedMessage(expected);
+        return true;
     }
 
     public Bid getLatestBid() {
@@ -34,11 +30,9 @@ public class AuctionStoppableOptimistic implements AuctionStoppable {
 
     public Bid stopAuction() {
         Bid expected;
-        Bid newValue;
         do {
             expected = latestBid.getReference();
-            newValue = expected;
-        } while (!latestBid.compareAndSet(expected, newValue, false, true));
+        } while (!latestBid.compareAndSet(expected, expected, false, true));
         return latestBid.getReference();
     }
 }
