@@ -16,8 +16,7 @@ public class RestaurantService {
     }
 
     public void addToStat(String restaurantName) {
-        stat.putIfAbsent(restaurantName, 0L);
-        stat.computeIfPresent(restaurantName, (k, v) -> ++v);
+        stat.merge(restaurantName, 1L, (curVal, baseVal) -> curVal+baseVal);
     }
 
     public Set<String> printStat() {
