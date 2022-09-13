@@ -1,6 +1,12 @@
 package course.concurrency.exams.auction;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class AuctionStoppablePessimistic implements AuctionStoppable {
+
+    private final Lock lock = new ReentrantLock();
+    private volatile boolean isStopped;
 
     private Notifier notifier;
 
@@ -8,12 +14,27 @@ public class AuctionStoppablePessimistic implements AuctionStoppable {
         this.notifier = notifier;
     }
 
-    private Bid latestBid;
+    private volatile Bid latestBid = new Bid(Long.MIN_VALUE, Long.MIN_VALUE, Long.MIN_VALUE);
 
     public boolean propose(Bid bid) {
-        if (bid.price > latestBid.price) {
-            notifier.sendOutdatedMessage(latestBid);
-            latestBid = bid;
+        if(isStopped) {
+            return false;
+        }
+        if(bid.price <= latestBid.price) {
+            return false;
+        }
+        Bid latestBidCopy = null;
+        try {
+            lock.lock();
+            if (bid.price > latestBid.price) {
+                latestBidCopy = new Bid(latestBid.id, latestBid.participantId, latestBid.price);
+                latestBid = bid;
+            }
+        } finally {
+            lock.unlock();
+        }
+        if(latestBidCopy != null) {
+            notifier.sendOutdatedMessage(latestBidCopy);
             return true;
         }
         return false;
@@ -24,7 +45,7 @@ public class AuctionStoppablePessimistic implements AuctionStoppable {
     }
 
     public Bid stopAuction() {
-        // ваш код
+        isStopped = true;
         return latestBid;
     }
 }
