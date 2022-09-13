@@ -5,7 +5,7 @@ import java.util.List;
 import static course.concurrency.m3_shared.immutable.Order.Status.IN_PROGRESS;
 import static course.concurrency.m3_shared.immutable.Order.Status.NEW;
 
-public class Order {
+public final class Order {
 
     public enum Status { NEW, IN_PROGRESS, DELIVERED }
 
