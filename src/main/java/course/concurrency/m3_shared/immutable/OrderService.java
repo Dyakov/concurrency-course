@@ -22,22 +22,18 @@ public class OrderService {
     }
 
     public void updatePaymentInfo(long orderId, PaymentInfo paymentInfo) {
-        currentOrders.compute(orderId, (k, v) -> v.withPaymentInfo(paymentInfo));
-        if (currentOrders.get(orderId).checkStatus()) {
-            deliver(currentOrders.get(orderId));
-        }
+        Order order = currentOrders.compute(orderId, (k, v) -> v.withPaymentInfo(paymentInfo));
+        deliver(order);
     }
 
     public void setPacked(long orderId) {
-        currentOrders.compute(orderId, (k, v) -> v.withPacked(true));
-        if (currentOrders.get(orderId).checkStatus()) {
-            deliver(currentOrders.get(orderId));
-        }
+        Order order = currentOrders.compute(orderId, (k, v) -> v.withPacked(true));
+        deliver(order);
     }
 
-    private synchronized void deliver(Order order) {
+    private void deliver(Order order) {
         /* ... */
-        if(currentOrders.get(order.getId()).checkStatus()) {
+        if(order.checkStatus()) {
             currentOrders.compute(order.getId(), (k, v) -> v.withStatus(Order.Status.DELIVERED));
         }
     }

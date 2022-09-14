@@ -30,7 +30,7 @@ public final class Order {
     }
 
     public boolean checkStatus() {
-        if (!items.isEmpty() && paymentInfo != null && isPacked && status != DELIVERED) {
+        if (!items.isEmpty() && paymentInfo != null && isPacked) {
             return true;
         }
         return false;
