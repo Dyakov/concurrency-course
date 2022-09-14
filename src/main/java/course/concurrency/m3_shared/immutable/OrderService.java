@@ -37,7 +37,7 @@ public class OrderService {
 
     private synchronized void deliver(Order order) {
         /* ... */
-        if(order.checkStatus()) {
+        if(currentOrders.get(order.getId()).checkStatus()) {
             currentOrders.compute(order.getId(), (k, v) -> v.withStatus(Order.Status.DELIVERED));
         }
     }
