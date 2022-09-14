@@ -2,8 +2,7 @@ package course.concurrency.m3_shared.immutable;
 
 import java.util.List;
 
-import static course.concurrency.m3_shared.immutable.Order.Status.IN_PROGRESS;
-import static course.concurrency.m3_shared.immutable.Order.Status.NEW;
+import static course.concurrency.m3_shared.immutable.Order.Status.*;
 
 public final class Order {
 
@@ -31,7 +30,7 @@ public final class Order {
     }
 
     public boolean checkStatus() {
-        if (!items.isEmpty() && paymentInfo != null && isPacked) {
+        if (!items.isEmpty() && paymentInfo != null && isPacked && status != DELIVERED) {
             return true;
         }
         return false;
@@ -43,10 +42,6 @@ public final class Order {
 
     public Order withPaymentInfo(PaymentInfo paymentInfo) {
         return new Order(this.id, this.items, paymentInfo, this.isPacked, IN_PROGRESS);
-    }
-
-    public boolean isPacked() {
-        return isPacked;
     }
 
     public Order withPacked(boolean packed) {

@@ -14,21 +14,21 @@ public class OrderService {
         return nextId.getAndIncrement();
     }
 
-    public synchronized long createOrder(List<Item> items) {
+    public long createOrder(List<Item> items) {
         long id = nextId();
         Order order = Order.withIdAndItemsInStatusNew(id, items);
         currentOrders.put(id, order);
         return id;
     }
 
-    public synchronized void updatePaymentInfo(long orderId, PaymentInfo paymentInfo) {
+    public void updatePaymentInfo(long orderId, PaymentInfo paymentInfo) {
         currentOrders.compute(orderId, (k, v) -> v.withPaymentInfo(paymentInfo));
         if (currentOrders.get(orderId).checkStatus()) {
             deliver(currentOrders.get(orderId));
         }
     }
 
-    public synchronized void setPacked(long orderId) {
+    public void setPacked(long orderId) {
         currentOrders.compute(orderId, (k, v) -> v.withPacked(true));
         if (currentOrders.get(orderId).checkStatus()) {
             deliver(currentOrders.get(orderId));
@@ -37,7 +37,9 @@ public class OrderService {
 
     private synchronized void deliver(Order order) {
         /* ... */
-        currentOrders.compute(order.getId(), (k, v) -> v.withStatus(Order.Status.DELIVERED));
+        if(order.checkStatus()) {
+            currentOrders.compute(order.getId(), (k, v) -> v.withStatus(Order.Status.DELIVERED));
+        }
     }
 
     public boolean isDelivered(long orderId) {
