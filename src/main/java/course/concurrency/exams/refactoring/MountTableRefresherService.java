@@ -1,14 +1,17 @@
 package course.concurrency.exams.refactoring;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 
 public class MountTableRefresherService {
 
     private Others.RouterStore routerStore = new Others.RouterStore();
     private long cacheUpdateTimeout;
+    private MountainTableManagerFactory mountainTableManagerFactory;
 
     /**
      * All router admin clients cached. So no need to create the client again and
@@ -22,13 +25,13 @@ public class MountTableRefresherService {
      */
     private ScheduledExecutorService clientCacheCleanerScheduler;
 
-    public void serviceInit()  {
+    public void serviceInit() {
         long routerClientMaxLiveTime = 15L;
         this.cacheUpdateTimeout = 10L;
         routerClientsCache = new Others.LoadingCache<String, Others.RouterClient>();
         routerStore.getCachedRecords().stream().map(Others.RouterState::getAdminAddress)
                 .forEach(addr -> routerClientsCache.add(addr, new Others.RouterClient()));
-
+        mountainTableManagerFactory = new MountainTableManagerFactory();
         initClientCacheCleaner(routerClientMaxLiveTime);
     }
 
@@ -63,34 +66,28 @@ public class MountTableRefresherService {
     /**
      * Refresh mount table cache of this router as well as all other routers.
      */
-    public void refresh()  {
-
-        List<Others.RouterState> cachedRecords = routerStore.getCachedRecords();
-        List<MountTableRefresherThread> refreshThreads = new ArrayList<>();
-        for (Others.RouterState routerState : cachedRecords) {
-            String adminAddress = routerState.getAdminAddress();
-            if (adminAddress == null || adminAddress.length() == 0) {
-                // this router has not enabled router admin.
-                continue;
-            }
-            if (isLocalAdmin(adminAddress)) {
-                /*
-                 * Local router's cache update does not require RPC call, so no need for
-                 * RouterClient
-                 */
-                refreshThreads.add(getLocalRefresher(adminAddress));
-            } else {
-                refreshThreads.add(new MountTableRefresherThread(
-                            new Others.MountTableManager(adminAddress), adminAddress));
-            }
-        }
+    public void refresh() {
+        List<MountTableRefresherThread> refreshThreads = routerStore.getCachedRecords().stream()
+                .map(Others.RouterState::getAdminAddress)
+                .filter(Objects::nonNull)
+                .filter(Predicate.not(String::isEmpty))
+                .map(this::createRefresher)
+                .collect(Collectors.toList());
         if (!refreshThreads.isEmpty()) {
             invokeRefresh(refreshThreads);
         }
     }
 
+    private MountTableRefresherThread createRefresher(String adminAddress) {
+        if (isLocalAdmin(adminAddress)) {
+            return getLocalRefresher(adminAddress);
+        } else {
+            return new MountTableRefresherThread(mountainTableManagerFactory.createManager(adminAddress), adminAddress);
+        }
+    }
+
     protected MountTableRefresherThread getLocalRefresher(String adminAddress) {
-        return new MountTableRefresherThread(new Others.MountTableManager("local"), adminAddress);
+        return new MountTableRefresherThread(mountainTableManagerFactory.createManager("local"), adminAddress);
     }
 
     private void removeFromCache(String adminAddress) {
@@ -98,25 +95,24 @@ public class MountTableRefresherService {
     }
 
     private void invokeRefresh(List<MountTableRefresherThread> refreshThreads) {
-        CountDownLatch countDownLatch = new CountDownLatch(refreshThreads.size());
-        // start all the threads
-        for (MountTableRefresherThread refThread : refreshThreads) {
-            refThread.setCountDownLatch(countDownLatch);
-            refThread.start();
-        }
-        try {
-            /*
-             * Wait for all the thread to complete, await method returns false if
-             * refresh is not finished within specified time
-             */
-            boolean allReqCompleted =
-                    countDownLatch.await(cacheUpdateTimeout, TimeUnit.MILLISECONDS);
-            if (!allReqCompleted) {
-                log("Not all router admins updated their cache");
-            }
-        } catch (InterruptedException e) {
-            log("Mount table cache refresher was interrupted.");
-        }
+        List<CompletableFuture<Void>> completableFutures = refreshThreads.stream()
+                .map(
+                        refreshThread -> CompletableFuture.runAsync(() -> refreshThread.run())
+                                .orTimeout(cacheUpdateTimeout, TimeUnit.MILLISECONDS)
+                )
+                .collect(Collectors.toList());
+        CompletableFuture.allOf(completableFutures.toArray(CompletableFuture[]::new))
+                .exceptionally(ex -> {
+                    if(ex instanceof CompletionException) {
+                        if (ex.getCause() instanceof TimeoutException) {
+                            log("Not all router admins updated their cache");
+                        } else if (ex instanceof InterruptedException) {
+                            log("Mount table cache refresher was interrupted.");
+                        }
+                    }
+                    return null;
+                })
+                .join();
         logResult(refreshThreads);
     }
 
@@ -148,11 +144,16 @@ public class MountTableRefresherService {
     public void setCacheUpdateTimeout(long cacheUpdateTimeout) {
         this.cacheUpdateTimeout = cacheUpdateTimeout;
     }
+
     public void setRouterClientsCache(Others.LoadingCache cache) {
         this.routerClientsCache = cache;
     }
 
     public void setRouterStore(Others.RouterStore routerStore) {
         this.routerStore = routerStore;
+    }
+
+    public void setMountainTableManagerFactory(MountainTableManagerFactory mountainTableManagerFactory) {
+        this.mountainTableManagerFactory = mountainTableManagerFactory;
     }
 }
