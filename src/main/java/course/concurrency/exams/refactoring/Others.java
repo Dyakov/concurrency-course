@@ -49,15 +49,32 @@ public class Others {
         }
     }
 
-    public static class MountTableManager {
+    public static final class MountTableManager implements Manager{
 
-        private String address;
+        private volatile boolean success;
+
+        private final String address;
+
         public MountTableManager(String address) {
             this.address = address;
         }
 
-        public boolean refresh() {
-            return ThreadLocalRandom.current().nextBoolean();
+        public void refresh() {
+            this.success =  ThreadLocalRandom.current().nextBoolean();
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        @Override
+        public String toString() {
+            return "MountTableManager [success=" + success + ", adminAddress="
+                    + address + "]";
         }
     }
 }
