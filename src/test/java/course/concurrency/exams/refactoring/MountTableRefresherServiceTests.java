@@ -4,6 +4,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import java.util.List;
@@ -20,7 +22,7 @@ public class MountTableRefresherServiceTests {
     private MountTableRefresherService service;
 
     private Others.RouterStore routerStore;
-    private Others.MountTableManager manager;
+    private Manager manager;
     private Others.LoadingCache routerClientsCache;
     private MountainTableManagerFactory mountainTableManagerFactory;
 
@@ -29,12 +31,12 @@ public class MountTableRefresherServiceTests {
         service = new MountTableRefresherService();
         service.setCacheUpdateTimeout(CACHE_UPDATE_TIMEOUT_IN_MILLISECONDS);
         routerStore = mock(Others.RouterStore.class);
-        manager = mock(Others.MountTableManager.class);
         service.setRouterStore(routerStore);
         routerClientsCache = mock(Others.LoadingCache.class);
         service.setRouterClientsCache(routerClientsCache);
         mountainTableManagerFactory = mock(MountainTableManagerFactory.class);
         service.setMountainTableManagerFactory(mountainTableManagerFactory);
+        manager = mock(Manager.class);
         // service.serviceInit(); // needed for complex class testing, not for now
     }
 
@@ -50,7 +52,7 @@ public class MountTableRefresherServiceTests {
         MountTableRefresherService mockedService = Mockito.spy(service);
         List<String> addresses = List.of("123", "local6", "789", "local");
 
-        when(manager.refresh()).thenReturn(true);
+        when(manager.isSuccess()).thenReturn(true);
 
         List<Others.RouterState> states = addresses.stream()
                 .map(a -> new Others.RouterState(a)).collect(toList());
@@ -73,7 +75,7 @@ public class MountTableRefresherServiceTests {
         MountTableRefresherService mockedService = Mockito.spy(service);
         List<String> addresses = List.of("123", "local6", "789", "local");
 
-        when(manager.refresh()).thenReturn(false);
+        when(manager.isSuccess()).thenReturn(false);
 
         List<Others.RouterState> states = addresses.stream()
                 .map(a -> new Others.RouterState(a)).collect(toList());
@@ -97,7 +99,7 @@ public class MountTableRefresherServiceTests {
         MountTableRefresherService mockedService = Mockito.spy(service);
         List<String> addresses = List.of("123", "local6", "789", "local");
 
-        when(manager.refresh())
+        when(manager.isSuccess())
                 .thenReturn(false)
                 .thenReturn(false)
                 .thenReturn(true)
@@ -124,11 +126,17 @@ public class MountTableRefresherServiceTests {
         MountTableRefresherService mockedService = Mockito.spy(service);
         List<String> addresses = List.of("123", "local6", "789", "local");
 
-        when(manager.refresh())
+        when(manager.isSuccess())
                 .thenReturn(true)
                 .thenReturn(true)
                 .thenReturn(true)
-                .thenThrow(new RuntimeException());
+                .thenReturn(false);
+
+        doNothing()
+                .doNothing()
+                .doNothing()
+                .doThrow(new RuntimeException())
+                .when(manager).refresh();
 
         List<Others.RouterState> states = addresses.stream()
                 .map(a -> new Others.RouterState(a)).collect(toList());
@@ -151,18 +159,24 @@ public class MountTableRefresherServiceTests {
         MountTableRefresherService mockedService = Mockito.spy(service);
         List<String> addresses = List.of("123", "local6", "789", "local");
 
-        when(manager.refresh())
+        when(manager.isSuccess())
                 .thenReturn(true)
                 .thenReturn(true)
                 .thenReturn(true)
-                .thenAnswer(invocation -> {
+                .thenReturn(false);
+
+        doNothing()
+                .doNothing()
+                .doNothing()
+                .doAnswer(invocation -> {
                     try {
                         TimeUnit.MILLISECONDS.sleep(CACHE_UPDATE_TIMEOUT_IN_MILLISECONDS + 2);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     return false;
-                });
+                })
+                .when(manager).refresh();
 
         List<Others.RouterState> states = addresses.stream()
                 .map(a -> new Others.RouterState(a)).collect(toList());

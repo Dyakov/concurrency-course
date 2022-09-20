@@ -67,7 +67,7 @@ public class MountTableRefresherService {
      * Refresh mount table cache of this router as well as all other routers.
      */
     public void refresh() {
-        List<MountTableRefresherThread> refreshThreads = routerStore.getCachedRecords().stream()
+        List<Manager> refreshThreads = routerStore.getCachedRecords().stream()
                 .map(Others.RouterState::getAdminAddress)
                 .filter(Objects::nonNull)
                 .filter(Predicate.not(String::isEmpty))
@@ -78,26 +78,26 @@ public class MountTableRefresherService {
         }
     }
 
-    private MountTableRefresherThread createRefresher(String adminAddress) {
+    private Manager createRefresher(String adminAddress) {
         if (isLocalAdmin(adminAddress)) {
             return getLocalRefresher(adminAddress);
         } else {
-            return new MountTableRefresherThread(mountainTableManagerFactory.createManager(adminAddress), adminAddress);
+            return mountainTableManagerFactory.createManager(adminAddress);
         }
     }
 
-    protected MountTableRefresherThread getLocalRefresher(String adminAddress) {
-        return new MountTableRefresherThread(mountainTableManagerFactory.createManager("local"), adminAddress);
+    protected Manager getLocalRefresher(String adminAddress) {
+        return mountainTableManagerFactory.createManager("local");
     }
 
     private void removeFromCache(String adminAddress) {
         routerClientsCache.invalidate(adminAddress);
     }
 
-    private void invokeRefresh(List<MountTableRefresherThread> refreshThreads) {
+    private void invokeRefresh(List<Manager> refreshThreads) {
         List<CompletableFuture<Void>> completableFutures = refreshThreads.stream()
                 .map(
-                        refreshThread -> CompletableFuture.runAsync(() -> refreshThread.run())
+                        refreshManager -> CompletableFuture.runAsync(() -> refreshManager.refresh())
                                 .orTimeout(cacheUpdateTimeout, TimeUnit.MILLISECONDS)
                 )
                 .collect(Collectors.toList());
@@ -120,16 +120,16 @@ public class MountTableRefresherService {
         return adminAddress.contains("local");
     }
 
-    private void logResult(List<MountTableRefresherThread> refreshThreads) {
+    private void logResult(List<Manager> refreshThreads) {
         int successCount = 0;
         int failureCount = 0;
-        for (MountTableRefresherThread mountTableRefreshThread : refreshThreads) {
-            if (mountTableRefreshThread.isSuccess()) {
+        for (Manager mountTableManager : refreshThreads) {
+            if (mountTableManager.isSuccess()) {
                 successCount++;
             } else {
                 failureCount++;
                 // remove RouterClient from cache so that new client is created
-                removeFromCache(mountTableRefreshThread.getAdminAddress());
+                removeFromCache(mountTableManager.getAddress());
             }
         }
         log(String.format(
